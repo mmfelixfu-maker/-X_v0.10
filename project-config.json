@@ -1,0 +1,43 @@
+{
+    "version":  2,
+    "max_intensity":  10,
+    "start_ai":  true,
+    "ai_max_rounds":  360,
+    "ai_interval_seconds":  10,
+    "ai_max_minutes":  60,
+    "max_frame_age_seconds":  120,
+    "feedback_device_location":  "unspecified",
+    "game_style":  "default",
+    "story_pacing":  "slow",
+    "feedback_burst_rounds":  3,
+    "feedback_rest_rounds":  1,
+    "feedback":  {
+                     "intensity_unit":  "percent",
+                     "default_channel":  "A",
+                     "max_duration_ms":  200000,
+                     "min_pulse_duty_percent":  70,
+                     "ai_response_timeout_seconds":  20,
+                     "reaction_observation_seconds":  2,
+                     "allowed_patterns":  [
+                                              "BUBBLE",
+                                              "PULSE",
+                                              "BREATHING",
+                                              "GRADUALRUB",
+                                              "RHYTHM"
+                                          ],
+                     "channels":  {
+                                      "A":  {
+                                                "enabled":  true,
+                                                "label":  "Channel A",
+                                                "location":  "unspecified",
+                                                "max_intensity":  10
+                                            },
+                                      "B":  {
+                                                "enabled":  true,
+                                                "label":  "Channel B",
+                                                "location":  "unspecified",
+                                                "max_intensity":  10
+                                            }
+                                  }
+                 }
+}

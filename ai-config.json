@@ -1,0 +1,28 @@
+{
+  "active_provider": "deepseek",
+  "image_detail": "auto",
+  "max_output_tokens": 5000,
+  "providers": {
+    "deepseek": {
+      "label": "DeepSeek",
+      "model": "deepseek-v4-flash-vision-exp",
+      "base_url": "https://api.deepseek.com",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "thinking_disabled": true
+    },
+    "openai": {
+      "label": "OpenAI",
+      "model": "gpt-5.6-luna",
+      "base_url": "https://api.openai.com/v1",
+      "api_key_env": "OPENAI_API_KEY",
+      "token_field": "max_completion_tokens"
+    },
+    "custom": {
+      "label": "OpenAI-compatible",
+      "model": "vision-model",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "api_key_env": "CUSTOM_API_KEY",
+      "token_field": "max_tokens"
+    }
+  }
+}

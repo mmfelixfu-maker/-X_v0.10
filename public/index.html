@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>iPhone Camera Bridge</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #10151d;
+      color: #f3f5f7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #10151d;
+    }
+
+    main {
+      width: min(920px, 100%);
+      margin: 0 auto;
+      padding: 18px max(18px, env(safe-area-inset-right)) 28px max(18px, env(safe-area-inset-left));
+    }
+
+    h1 {
+      margin: 6px 0 16px;
+      color: #ffffff;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .panel {
+      border: 1px solid #303944;
+      border-radius: 8px;
+      background: #19212b;
+      padding: 14px;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 14px;
+      padding: 4px;
+      border-radius: 8px;
+      background: #0d131a;
+    }
+
+    .tab {
+      min-height: 38px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: #aeb8c4;
+      font-weight: 650;
+    }
+
+    .tab[aria-selected="true"] {
+      background: #2b7a78;
+      color: #ffffff;
+    }
+
+    .page[hidden] { display: none; }
+
+    .controls,
+    .buttons {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .controls { grid-template-columns: repeat(3, 1fr); }
+    .buttons { grid-template-columns: 1fr 1fr 1fr; }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: #c4ced8;
+      font-size: 13px;
+    }
+
+    select,
+    input,
+    button {
+      min-height: 42px;
+      border: 1px solid #3d4855;
+      border-radius: 6px;
+      background: #111821;
+      color: #f3f5f7;
+      font: inherit;
+      padding: 0 12px;
+    }
+
+    button {
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: #369895;
+      background: #267c79;
+    }
+
+    button.stop {
+      border-color: #bd5c5c;
+      background: #7e292f;
+    }
+
+    button.secondary {
+      border-color: #596779;
+      background: #222d39;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .camera-frame,
+    .preview-frame {
+      overflow: hidden;
+      border: 1px solid #35404c;
+      border-radius: 7px;
+      background: #070b10;
+    }
+
+    video,
+    #previewCanvas {
+      display: block;
+      width: 100%;
+      max-height: 62vh;
+      background: #070b10;
+      object-fit: contain;
+    }
+
+    .preview-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 18px 0 8px;
+    }
+
+    .preview-heading span,
+    .status,
+    .hint,
+    .setting-note {
+      color: #b7c4d1;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .status {
+      min-height: 24px;
+      margin-top: 10px;
+      color: #b9e5e2;
+      word-break: break-word;
+    }
+
+    .hint,
+    .setting-note { margin: 10px 0 0; }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .settings-header button {
+      min-height: 36px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+
+    .setting-list { margin-top: 14px; }
+
+    .settings-section {
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid #303945;
+    }
+
+    .settings-section h2 { font-size: 16px; }
+
+    .orientation-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .mirror-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: #edf2f7;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .mirror-toggle input {
+      width: 42px;
+      min-height: 24px;
+      margin: 0;
+      padding: 0;
+      accent-color: #43bbb4;
+    }
+
+    .rotate-actions { display: flex; gap: 8px; }
+
+    .icon-button {
+      display: grid;
+      width: 40px;
+      min-height: 36px;
+      place-items: center;
+      padding: 0;
+      color: #d7e4ed;
+      font-size: 23px;
+      line-height: 1;
+    }
+
+    .crop-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .crop-presets {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      padding: 4px;
+      border-radius: 7px;
+      background: #0d131a;
+    }
+
+    .crop-preset {
+      min-height: 32px;
+      border: 0;
+      border-radius: 4px;
+      padding: 0 8px;
+      background: transparent;
+      color: #aeb8c4;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .crop-preset[aria-pressed="true"] {
+      background: #355d5c;
+      color: #ffffff;
+    }
+
+    .crop-editor {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #35404c;
+      border-radius: 7px;
+      background: #070b10;
+    }
+
+    #cropCanvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .crop-box {
+      position: absolute;
+      border: 2px solid #77e1db;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.42);
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .crop-box:active { cursor: grabbing; }
+
+    .crop-empty {
+      display: grid;
+      min-height: 150px;
+      place-items: center;
+      color: #718093;
+      font-size: 14px;
+    }
+
+    .setting {
+      display: grid;
+      grid-template-columns: minmax(74px, 1fr) 58px;
+      gap: 8px 12px;
+      align-items: center;
+      padding: 13px 0;
+      border-bottom: 1px solid #303945;
+    }
+
+    .setting:last-child { border-bottom: 0; }
+
+    .setting label {
+      display: block;
+      color: #edf2f7;
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .setting output {
+      color: #9de2dd;
+      font-variant-numeric: tabular-nums;
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .setting input[type="range"] {
+      grid-column: 1 / -1;
+      width: 100%;
+      min-height: auto;
+      height: 26px;
+      padding: 0;
+      accent-color: #43bbb4;
+    }
+
+    .empty-preview {
+      display: grid;
+      min-height: 180px;
+      place-items: center;
+      color: #718093;
+      font-size: 14px;
+    }
+
+    canvas.hidden { display: none; }
+
+    @media (max-width: 640px) {
+      main { padding-top: 14px; }
+      .controls,
+      .buttons { grid-template-columns: 1fr; }
+      .orientation-controls { align-items: flex-start; }
+      .crop-heading { align-items: flex-start; flex-direction: column; }
+      .crop-presets { width: 100%; }
+      video,
+      #previewCanvas { max-height: 54vh; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>iPhone Camera Bridge</h1>
+    <nav class="tabs" aria-label="页面切换">
+      <button class="tab" type="button" data-page="camera" aria-selected="true">取景</button>
+      <button class="tab" type="button" data-page="settings" aria-selected="false">设置</button>
+    </nav>
+
+    <section id="cameraPage" class="page panel">
+      <div class="controls">
+        <label>
+          摄像头方向
+          <select id="facing">
+            <option value="environment">后置摄像头</option>
+            <option value="user">前置摄像头</option>
+          </select>
+        </label>
+        <label>
+          捕获间隔，毫秒
+          <input id="interval" type="number" min="200" max="5000" step="100" value="1000">
+        </label>
+        <label>
+          发送分辨率
+          <select id="resolution">
+            <option value="0">原始</option>
+            <option value="1280" selected>1280 长边</option>
+            <option value="960">960 长边</option>
+            <option value="720">720 长边</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="buttons">
+        <button id="start" class="primary">开始</button>
+        <button id="stop" class="stop" disabled>停止</button>
+        <button id="snap" class="secondary" disabled>立即抓一张</button>
+      </div>
+
+      <div class="camera-frame">
+        <video id="video" autoplay muted playsinline></video>
+      </div>
+
+      <div class="preview-heading">
+        <h2>发送预览</h2>
+        <span id="previewSize">等待摄像头画面</span>
+      </div>
+      <div class="preview-frame">
+        <canvas id="previewCanvas"></canvas>
+        <div id="emptyPreview" class="empty-preview">处理后的画面会显示在这里</div>
+      </div>
+
+      <div id="status" class="status">等待开始。第一次打开 HTTPS 自签名证书页面时，Safari 可能需要你点继续访问。</div>
+      <p class="hint">发送预览就是将要覆盖保存为 latest.jpg 的画面。调整效果请到“设置”页。</p>
+    </section>
+
+    <section id="settingsPage" class="page panel" hidden>
+      <div class="settings-header">
+        <h2>临时画面调整</h2>
+        <button id="resetAdjustments" class="secondary" type="button">恢复默认</button>
+      </div>
+      <p class="setting-note">这些设置只在当前浏览器页面生效，不会保存。调整后，发送预览会立即反映最终上传的画面。</p>
+
+      <div class="settings-section">
+        <h2>方向</h2>
+        <div class="orientation-controls">
+          <label class="mirror-toggle" for="mirror">
+            左右镜像
+            <input id="mirror" type="checkbox">
+          </label>
+          <div class="rotate-actions">
+            <button id="rotateLeft" class="secondary icon-button" type="button" title="向左旋转 90 度" aria-label="向左旋转 90 度">↶</button>
+            <button id="rotateRight" class="secondary icon-button" type="button" title="向右旋转 90 度" aria-label="向右旋转 90 度">↷</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-list">
+        <div class="setting">
+          <label for="brightness">亮度</label><output id="brightnessValue">100%</output>
+          <input id="brightness" type="range" min="0" max="200" value="100" aria-valuetext="100%">
+        </div>
+        <div class="setting">
+          <label for="contrast">对比度</label><output id="contrastValue">100%</output>
+          <input id="contrast" type="range" min="0" max="200" value="100" aria-valuetext="100%">
+        </div>
+        <div class="setting">
+          <label for="shadows">阴影</label><output id="shadowsValue">0</output>
+          <input id="shadows" type="range" min="-100" max="100" value="0" aria-valuetext="0">
+        </div>
+        <div class="setting">
+          <label for="highlights">高光</label><output id="highlightsValue">0</output>
+          <input id="highlights" type="range" min="-100" max="100" value="0" aria-valuetext="0">
+        </div>
+        <div class="setting">
+          <label for="sharpen">锐化</label><output id="sharpenValue">0</output>
+          <input id="sharpen" type="range" min="0" max="100" value="0" aria-valuetext="0">
+        </div>
+        <div class="setting">
+          <label for="rotation">旋转</label><output id="rotationValue">0°</output>
+          <input id="rotation" type="range" min="-180" max="180" step="1" value="0" aria-valuetext="0°">
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="crop-heading">
+          <h2>裁切构图</h2>
+          <div class="crop-presets" role="group" aria-label="裁切比例">
+            <button class="crop-preset" type="button" data-aspect="original" aria-pressed="true">原始</button>
+            <button class="crop-preset" type="button" data-aspect="16:9" aria-pressed="false">16:9</button>
+            <button class="crop-preset" type="button" data-aspect="4:3" aria-pressed="false">4:3</button>
+            <button class="crop-preset" type="button" data-aspect="1:1" aria-pressed="false">1:1</button>
+          </div>
+        </div>
+        <div id="cropEditor" class="crop-editor">
+          <canvas id="cropCanvas"></canvas>
+          <div id="cropBox" class="crop-box" role="slider" tabindex="0" aria-label="裁切区域" hidden></div>
+          <div id="cropEmpty" class="crop-empty">摄像头画面会显示在这里</div>
+        </div>
+      </div>
+    </section>
+
+    <canvas id="sourceCanvas" class="hidden"></canvas>
+    <canvas id="canvas" class="hidden"></canvas>
+  </main>
+
+  <script>
+    const video = document.getElementById("video");
+    const sourceCanvas = document.getElementById("sourceCanvas");
+    const canvas = document.getElementById("canvas");
+    const previewCanvas = document.getElementById("previewCanvas");
+    const previewContext = previewCanvas.getContext("2d", { alpha: false });
+    const emptyPreview = document.getElementById("emptyPreview");
+    const previewSize = document.getElementById("previewSize");
+    const facing = document.getElementById("facing");
+    const intervalInput = document.getElementById("interval");
+    const resolutionInput = document.getElementById("resolution");
+    const startButton = document.getElementById("start");
+    const stopButton = document.getElementById("stop");
+    const snapButton = document.getElementById("snap");
+    const statusBox = document.getElementById("status");
+    const resetAdjustmentsButton = document.getElementById("resetAdjustments");
+    const mirrorInput = document.getElementById("mirror");
+    const rotateLeftButton = document.getElementById("rotateLeft");
+    const rotateRightButton = document.getElementById("rotateRight");
+    const cropCanvas = document.getElementById("cropCanvas");
+    const cropContext = cropCanvas.getContext("2d", { alpha: false });
+    const cropBox = document.getElementById("cropBox");
+    const cropEmpty = document.getElementById("cropEmpty");
+    const cropPresets = document.querySelectorAll(".crop-preset");
+    const tabs = document.querySelectorAll(".tab");
+    const pages = {
+      camera: document.getElementById("cameraPage"),
+      settings: document.getElementById("settingsPage"),
+    };
+
+    const defaults = {
+      brightness: 100,
+      contrast: 100,
+      shadows: 0,
+      highlights: 0,
+      sharpen: 0,
+      rotation: 0,
+    };
+    const adjustments = { ...defaults };
+    const frameOptions = {
+      mirror: false,
+      cropAspect: "original",
+      cropCenterX: 0.5,
+      cropCenterY: 0.5,
+    };
+    const adjustmentInputs = Object.fromEntries(
+      Object.keys(defaults).map((name) => [name, document.getElementById(name)])
+    );
+    const adjustmentOutputs = Object.fromEntries(
+      Object.keys(defaults).map((name) => [name, document.getElementById(`${name}Value`)])
+    );
+
+    let stream = null;
+    let timer = null;
+    let frameCount = 0;
+    let sending = false;
+    let previewPending = false;
+    let previewTimer = null;
+    let cropSource = null;
+    let cropPointerId = null;
+
+    function setStatus(text) {
+      statusBox.textContent = text;
+    }
+
+    function formatAdjustment(name, value) {
+      if (name === "brightness" || name === "contrast") return `${value}%`;
+      if (name === "rotation") return `${value}°`;
+      return `${value}`;
+    }
+
+    function updateAdjustmentDisplay(name) {
+      const value = adjustments[name];
+      adjustmentOutputs[name].value = formatAdjustment(name, value);
+      adjustmentInputs[name].setAttribute("aria-valuetext", formatAdjustment(name, value));
+    }
+
+    function showPage(name) {
+      for (const [pageName, page] of Object.entries(pages)) {
+        page.hidden = pageName !== name;
+      }
+      for (const tab of tabs) {
+        tab.setAttribute("aria-selected", String(tab.dataset.page === name));
+      }
+      if (name === "camera") requestPreview();
+    }
+
+    function clampByte(value) {
+      return Math.max(0, Math.min(255, Math.round(value)));
+    }
+
+    function clamp(value, minimum, maximum) {
+      return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    function applyAdjustments(imageData, width, height) {
+      const pixels = imageData.data;
+      const brightness = adjustments.brightness / 100;
+      const contrast = adjustments.contrast / 100;
+      const shadowAmount = adjustments.shadows / 100;
+      const highlightAmount = adjustments.highlights / 100;
+
+      for (let i = 0; i < pixels.length; i += 4) {
+        let red = (pixels[i] * brightness - 128) * contrast + 128;
+        let green = (pixels[i + 1] * brightness - 128) * contrast + 128;
+        let blue = (pixels[i + 2] * brightness - 128) * contrast + 128;
+        const luminance = Math.max(0, Math.min(1, (red * 0.2126 + green * 0.7152 + blue * 0.0722) / 255));
+
+        const adjustRange = (channel, amount, weight) => {
+          if (amount >= 0) return channel + (255 - channel) * amount * weight;
+          return channel * (1 + amount * weight);
+        };
+        const shadowWeight = (1 - luminance) * (1 - luminance);
+        const highlightWeight = luminance * luminance;
+        red = adjustRange(adjustRange(red, shadowAmount, shadowWeight), highlightAmount, highlightWeight);
+        green = adjustRange(adjustRange(green, shadowAmount, shadowWeight), highlightAmount, highlightWeight);
+        blue = adjustRange(adjustRange(blue, shadowAmount, shadowWeight), highlightAmount, highlightWeight);
+
+        pixels[i] = clampByte(red);
+        pixels[i + 1] = clampByte(green);
+        pixels[i + 2] = clampByte(blue);
+      }
+
+      if (adjustments.sharpen <= 0) return;
+
+      const original = new Uint8ClampedArray(pixels);
+      const strength = adjustments.sharpen / 250;
+      for (let y = 1; y < height - 1; y += 1) {
+        for (let x = 1; x < width - 1; x += 1) {
+          const index = (y * width + x) * 4;
+          const left = index - 4;
+          const right = index + 4;
+          const above = index - width * 4;
+          const below = index + width * 4;
+          for (let channel = 0; channel < 3; channel += 1) {
+            const edge = original[index + channel] * 4
+              - original[left + channel] - original[right + channel]
+              - original[above + channel] - original[below + channel];
+            pixels[index + channel] = clampByte(original[index + channel] + edge * strength);
+          }
+        }
+      }
+    }
+
+    function getTargetDimensions(width, height) {
+      const requestedLongEdge = Number(resolutionInput.value);
+      const sourceLongEdge = Math.max(width, height);
+      if (!requestedLongEdge || requestedLongEdge >= sourceLongEdge) return { width, height };
+      const scale = requestedLongEdge / sourceLongEdge;
+      return {
+        width: Math.max(1, Math.round(width * scale)),
+        height: Math.max(1, Math.round(height * scale)),
+      };
+    }
+
+    function getCropRatio() {
+      return {
+        "16:9": 16 / 9,
+        "4:3": 4 / 3,
+        "1:1": 1,
+      }[frameOptions.cropAspect] || null;
+    }
+
+    function getCropRect(width, height) {
+      const ratio = getCropRatio();
+      if (!ratio) return { x: 0, y: 0, width, height };
+
+      let cropWidth = width;
+      let cropHeight = cropWidth / ratio;
+      if (cropHeight > height) {
+        cropHeight = height;
+        cropWidth = cropHeight * ratio;
+      }
+
+      const minCenterX = cropWidth / (2 * width);
+      const maxCenterX = 1 - minCenterX;
+      const minCenterY = cropHeight / (2 * height);
+      const maxCenterY = 1 - minCenterY;
+      const centerX = clamp(frameOptions.cropCenterX, minCenterX, maxCenterX);
+      const centerY = clamp(frameOptions.cropCenterY, minCenterY, maxCenterY);
+      return {
+        x: clamp(centerX * width - cropWidth / 2, 0, width - cropWidth),
+        y: clamp(centerY * height - cropHeight / 2, 0, height - cropHeight),
+        width: cropWidth,
+        height: cropHeight,
+      };
+    }
+
+    function renderCropEditor(source) {
+      cropSource = source;
+      cropCanvas.width = source.width;
+      cropCanvas.height = source.height;
+      cropContext.drawImage(sourceCanvas, 0, 0);
+      const crop = getCropRect(source.width, source.height);
+      cropBox.style.left = `${(crop.x / source.width) * 100}%`;
+      cropBox.style.top = `${(crop.y / source.height) * 100}%`;
+      cropBox.style.width = `${(crop.width / source.width) * 100}%`;
+      cropBox.style.height = `${(crop.height / source.height) * 100}%`;
+      cropBox.hidden = false;
+      cropBox.setAttribute("aria-valuetext", `${frameOptions.cropAspect} 裁切`);
+      cropEmpty.hidden = true;
+    }
+
+    function prepareSourceFrame() {
+      if (!stream || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return null;
+
+      const originalWidth = video.videoWidth || 1280;
+      const originalHeight = video.videoHeight || 720;
+      const { width: sourceWidth, height: sourceHeight } = getTargetDimensions(originalWidth, originalHeight);
+      sourceCanvas.width = sourceWidth;
+      sourceCanvas.height = sourceHeight;
+      const sourceContext = sourceCanvas.getContext("2d", { alpha: false, willReadFrequently: true });
+      sourceContext.drawImage(video, 0, 0, originalWidth, originalHeight, 0, 0, sourceWidth, sourceHeight);
+      const imageData = sourceContext.getImageData(0, 0, sourceWidth, sourceHeight);
+      applyAdjustments(imageData, sourceWidth, sourceHeight);
+      sourceContext.putImageData(imageData, 0, 0);
+      const source = { width: sourceWidth, height: sourceHeight };
+      renderCropEditor(source);
+      return source;
+    }
+
+    function renderFrame() {
+      const source = prepareSourceFrame();
+      if (!source) return null;
+
+      const crop = getCropRect(source.width, source.height);
+
+      const radians = adjustments.rotation * Math.PI / 180;
+      const cosine = Math.abs(Math.cos(radians));
+      const sine = Math.abs(Math.sin(radians));
+      const outputWidth = Math.max(1, Math.ceil(crop.width * cosine + crop.height * sine));
+      const outputHeight = Math.max(1, Math.ceil(crop.width * sine + crop.height * cosine));
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+      const context = canvas.getContext("2d", { alpha: false });
+      context.fillStyle = "#000000";
+      context.fillRect(0, 0, outputWidth, outputHeight);
+      context.translate(outputWidth / 2, outputHeight / 2);
+      context.rotate(radians);
+      if (frameOptions.mirror) context.scale(-1, 1);
+      context.drawImage(
+        sourceCanvas,
+        crop.x,
+        crop.y,
+        crop.width,
+        crop.height,
+        -crop.width / 2,
+        -crop.height / 2,
+        crop.width,
+        crop.height,
+      );
+
+      return { width: outputWidth, height: outputHeight };
+    }
+
+    function renderPreview() {
+      previewPending = false;
+      previewTimer = null;
+      const frame = renderFrame();
+      if (!frame) return;
+
+      previewCanvas.width = frame.width;
+      previewCanvas.height = frame.height;
+      previewContext.drawImage(canvas, 0, 0);
+      emptyPreview.hidden = true;
+      previewSize.textContent = `${frame.width}x${frame.height}`;
+    }
+
+    function requestPreview() {
+      if (previewPending) return;
+      previewPending = true;
+      previewTimer = window.setTimeout(() => requestAnimationFrame(renderPreview), 80);
+    }
+
+    function resetAdjustments() {
+      for (const [name, value] of Object.entries(defaults)) {
+        adjustments[name] = value;
+        adjustmentInputs[name].value = value;
+        updateAdjustmentDisplay(name);
+      }
+      resolutionInput.value = "1280";
+      frameOptions.mirror = false;
+      mirrorInput.checked = false;
+      frameOptions.cropAspect = "original";
+      frameOptions.cropCenterX = 0.5;
+      frameOptions.cropCenterY = 0.5;
+      updateCropPresetButtons();
+      requestPreview();
+    }
+
+    function updateCropPresetButtons() {
+      for (const preset of cropPresets) {
+        preset.setAttribute("aria-pressed", String(preset.dataset.aspect === frameOptions.cropAspect));
+      }
+    }
+
+    function rotateBy(degrees) {
+      adjustments.rotation = ((adjustments.rotation + degrees + 180) % 360 + 360) % 360 - 180;
+      adjustmentInputs.rotation.value = adjustments.rotation;
+      updateAdjustmentDisplay("rotation");
+      requestPreview();
+    }
+
+    function moveCropToPointer(event) {
+      if (!cropSource || !getCropRatio()) return;
+      const bounds = cropCanvas.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+      const crop = getCropRect(cropSource.width, cropSource.height);
+      const horizontal = (event.clientX - bounds.left) / bounds.width;
+      const vertical = (event.clientY - bounds.top) / bounds.height;
+      frameOptions.cropCenterX = clamp(horizontal, crop.width / (2 * cropSource.width), 1 - crop.width / (2 * cropSource.width));
+      frameOptions.cropCenterY = clamp(vertical, crop.height / (2 * cropSource.height), 1 - crop.height / (2 * cropSource.height));
+      requestPreview();
+    }
+
+    async function getCameraStream() {
+      const selectedFacing = facing.value;
+      const constraints = {
+        audio: false,
+        video: {
+          facingMode: { ideal: selectedFacing },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      };
+
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (firstError) {
+        return navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: selectedFacing },
+        });
+      }
+    }
+
+    async function start() {
+      if (!window.isSecureContext) {
+        setStatus("当前页面不是安全上下文。iPhone Safari 需要用 https:// 打开这个页面。");
+        return;
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus("这个浏览器不支持 getUserMedia。请用 iPhone Safari 打开。");
+        return;
+      }
+
+      stop();
+      try {
+        stream = await getCameraStream();
+        video.srcObject = stream;
+        await video.play();
+        startButton.disabled = true;
+        stopButton.disabled = false;
+        snapButton.disabled = false;
+        facing.disabled = true;
+        intervalInput.disabled = true;
+        setStatus("摄像头已启动，正在上传画面...");
+        requestPreview();
+        await captureAndSend();
+        timer = setInterval(captureAndSend, Math.max(200, Number(intervalInput.value) || 1000));
+      } catch (err) {
+        setStatus("启动失败：" + err.message);
+      }
+    }
+
+    function stop() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+      if (stream) {
+        for (const track of stream.getTracks()) track.stop();
+        stream = null;
+      }
+      video.srcObject = null;
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      snapButton.disabled = true;
+      facing.disabled = false;
+      intervalInput.disabled = false;
+      if (frameCount > 0) setStatus(`已停止。最后上传帧数：${frameCount}`);
+    }
+
+    async function captureAndSend() {
+      if (!stream || sending || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+
+      sending = true;
+      try {
+        const frame = renderFrame();
+        if (!frame) return;
+        previewCanvas.width = frame.width;
+        previewCanvas.height = frame.height;
+        previewContext.drawImage(canvas, 0, 0);
+        emptyPreview.hidden = true;
+        previewSize.textContent = `${frame.width}x${frame.height}`;
+
+        const image = canvas.toDataURL("image/jpeg", 0.82);
+        const res = await fetch("/frame", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image, camera: facing.value, width: frame.width, height: frame.height }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+
+        const data = await res.json();
+        frameCount = data.frameCount;
+        setStatus(`已上传 ${frameCount} 帧，${frame.width}x${frame.height}，latest.jpg 已更新：${new Date().toLocaleTimeString()}`);
+      } catch (err) {
+        setStatus("上传失败：" + err.message);
+      } finally {
+        sending = false;
+      }
+    }
+
+    for (const [name, input] of Object.entries(adjustmentInputs)) {
+      input.addEventListener("input", () => {
+        adjustments[name] = Number(input.value);
+        updateAdjustmentDisplay(name);
+        requestPreview();
+      });
+      updateAdjustmentDisplay(name);
+    }
+    resolutionInput.addEventListener("change", requestPreview);
+    mirrorInput.addEventListener("change", () => {
+      frameOptions.mirror = mirrorInput.checked;
+      requestPreview();
+    });
+    rotateLeftButton.addEventListener("click", () => rotateBy(-90));
+    rotateRightButton.addEventListener("click", () => rotateBy(90));
+    for (const preset of cropPresets) {
+      preset.addEventListener("click", () => {
+        frameOptions.cropAspect = preset.dataset.aspect;
+        frameOptions.cropCenterX = 0.5;
+        frameOptions.cropCenterY = 0.5;
+        updateCropPresetButtons();
+        requestPreview();
+      });
+    }
+    cropBox.addEventListener("pointerdown", (event) => {
+      if (!getCropRatio()) return;
+      cropPointerId = event.pointerId;
+      cropBox.setPointerCapture(event.pointerId);
+      moveCropToPointer(event);
+      event.preventDefault();
+    });
+    cropBox.addEventListener("pointermove", (event) => {
+      if (event.pointerId !== cropPointerId) return;
+      moveCropToPointer(event);
+      event.preventDefault();
+    });
+    for (const eventName of ["pointerup", "pointercancel"]) {
+      cropBox.addEventListener(eventName, (event) => {
+        if (event.pointerId === cropPointerId) cropPointerId = null;
+      });
+    }
+    cropBox.addEventListener("keydown", (event) => {
+      if (!cropSource || !getCropRatio()) return;
+      const step = event.shiftKey ? 0.05 : 0.01;
+      if (event.key === "ArrowLeft") frameOptions.cropCenterX -= step;
+      else if (event.key === "ArrowRight") frameOptions.cropCenterX += step;
+      else if (event.key === "ArrowUp") frameOptions.cropCenterY -= step;
+      else if (event.key === "ArrowDown") frameOptions.cropCenterY += step;
+      else return;
+      const crop = getCropRect(cropSource.width, cropSource.height);
+      frameOptions.cropCenterX = clamp(frameOptions.cropCenterX, crop.width / (2 * cropSource.width), 1 - crop.width / (2 * cropSource.width));
+      frameOptions.cropCenterY = clamp(frameOptions.cropCenterY, crop.height / (2 * cropSource.height), 1 - crop.height / (2 * cropSource.height));
+      requestPreview();
+      event.preventDefault();
+    });
+    updateCropPresetButtons();
+    for (const tab of tabs) tab.addEventListener("click", () => showPage(tab.dataset.page));
+    resetAdjustmentsButton.addEventListener("click", resetAdjustments);
+    startButton.addEventListener("click", start);
+    stopButton.addEventListener("click", stop);
+    snapButton.addEventListener("click", captureAndSend);
+    window.addEventListener("pagehide", stop);
+  </script>
+</body>
+</html>

@@ -1,0 +1,363 @@
+vibration-control.py 使用教程
+==============================
+
+用途
+----
+
+这个脚本用于直接连接震动器 PowerShell TCP 串口桥，发送 ESP32-S3 控制命令。
+
+默认连接：
+
+  127.0.0.1:25363
+
+也就是默认要求你已经在本机启动 PowerShell 串口桥脚本。
+
+如果桥监听在别的机器或端口，用 --host / --port 指定。
+
+
+常用命令
+--------
+
+查看帮助：
+
+  py .\vibration-control.py --help
+
+测试桥是否通：
+
+  py .\vibration-control.py --ping
+
+查看 ESP32-S3 / 震动器状态：
+
+  py .\vibration-control.py --status
+
+扫描或重连震动器：
+
+  py .\vibration-control.py --scan
+
+查看服务枚举：
+
+  py .\vibration-control.py --services
+
+直接设定强度：
+
+  py .\vibration-control.py --set 10
+  py .\vibration-control.py --set 30
+
+模拟触摸玩家或用力触摸玩家或拍打玩家等反馈：
+
+  py .\vibration-control.py --hit 1
+  py .\vibration-control.py --hit 10
+
+停止：
+
+  py .\vibration-control.py --stop
+
+
+set 和 hit 的区别
+-----------------
+
+--percent 是正式百分比接口；--set 和 --hit 是兼容名称，数值含义相同。
+
+例如：
+
+  --set 30
+
+会发送：
+
+  SET 30
+
+--hit 发送一次百分比反馈。
+
+例如：
+
+  --hit 1
+
+会发送：
+
+  HIT 1
+
+所有命令都按通道最大强度换算：例如通道上限为 80，命令值 25 表示实际等级 20。
+
+
+高级持续命令
+------------
+
+高级模式必须把 --advanced 放在 vibration-control.py 后面的第一个参数位置：
+
+  py .\vibration-control.py --advanced ...
+
+只有进入 --advanced 后，下面这些高级参数才会生效。这样可以避免和普通的一次性
+--hit / --set / --stop / --status 参数冲突。
+
+高级模式会在一段时间内重复发送命令：
+
+  --time       总持续时间，单位秒
+  --interval   每次发送之间的间隔，单位秒
+  --hit        固定百分比的重复反馈
+  --randomhit  在 MIN-MAX 范围内随机百分比反馈
+  --set        固定百分比的重复反馈（默认单次持续更长）
+  --randomset  在 MIN-MAX 范围内随机百分比反馈（默认单次持续更长）
+
+持续 120 秒，每 2 秒随机反馈一次，百分比在 0 到 100 之间随机：
+
+  py .\vibration-control.py --advanced --randomhit 0-100 --time 120 --interval 2
+
+持续 200 秒，每 5 秒反馈一次，百分比固定为 100：
+
+  py .\vibration-control.py --advanced --hit 100 --time 200 --interval 5
+
+持续 90 秒，每 1.5 秒随机 HIT 一次，适合做不规律拍打或小怪连续干扰：
+
+  py .\vibration-control.py --advanced --randomhit 5-35 --time 90 --interval 1.5
+
+持续 60 秒，每 0.8 秒随机 HIT 一次，适合表现急促但强度不稳定的攻击节奏：
+
+  py .\vibration-control.py --advanced --randomhit 10-60 --time 60 --interval 0.8
+
+持续 45 秒，每 3 秒 HIT 一次，适合节奏很慢但存在压迫感的场景：
+
+  py .\vibration-control.py --advanced --hit 25 --time 45 --interval 3
+
+持续 30 秒，每 1 秒直接随机设定强度，适合做环境魔法场、黏液陷阱、电流地板之类的连续波动：
+
+  py .\vibration-control.py --advanced --randomset 0-40 --time 30 --interval 1
+
+持续 20 秒，每 0.5 秒把强度固定设为 15，适合做稳定的背景干扰：
+
+  py .\vibration-control.py --advanced --set 15 --time 20 --interval 0.5
+
+前台运行时，按 Ctrl+C 可以中断当前高级循环；脚本会再发送 STOP。
+
+AI 自动控制：
+
+AI 不直接生成系统命令，而是根据最新画面优先返回经过限制的连续反馈计划。计划包含
+feedback_mode、最高/最低百分比、总时长、重复间隔、单次持续时间和波形。
+waveform 模式还能把 fixed、random 和 rest 段组合成循环，例如高强度 5 秒、
+休息 2 秒，再从头开始。每次 AI 刷新都可以保持、停止或替换上一轮持续计划。
+
+反馈状态与 AI 失联停止：
+
+  project-config.json -> feedback.ai_response_timeout_seconds
+
+hit 会建立或更新反馈状态，none 保持当前有效状态，stop 立即清除状态。默认看门狗
+为 20 秒：AI 请求超过 20 秒、网络/API 断开、鉴权失败、响应损坏或摄像头检查失败时，
+后台高级循环和波形循环都会被终止并发送 STOP。超过 20 秒后返回的迟到结果不会在
+该轮重新启动反馈，需要下一轮新的有效 hit。status.bat 可以查看当前反馈状态。
+
+实时反应观察：
+
+  project-config.json -> feedback.reaction_observation_seconds
+
+默认 2 秒。持续反馈或多段效果使用后台进程启动，AI 不等待整段反馈结束；程序等待
+一张在反馈启动后更新的 latest.jpg，随后立即进行反应观察。AI 会记录可见姿态变化、
+目标护甲、怪物动作和可能弱点，再决定保持、替换或停止当前反馈状态。没有新画面时会
+显示提示，并继续遵守图片新鲜度、轮数、游戏时长和 token 上限。
+
+剧情速度：
+
+  project-config.json -> story_pacing
+
+可选 slow、normal、fast，默认 slow。slow 模式每轮只推进一个小事件，高潮前保留
+数轮铺垫和逐步升级，高潮开始后也会持续数轮互动，不会一轮进入高潮并立即收尾。
+
+查看、导入和播放长期波形：
+
+  manage-waveforms.bat
+  把 .pulse 或 ZIP 放到 .\waveforms\inbox，然后选择扫描导入
+  py -3.13 .\waveform-control.py --scan-inbox
+  py -3.13 .\waveform-control.py --list-pulses
+  py -3.13 .\waveform-control.py --list
+  py -3.13 .\waveform-control.py --import .\my-waveforms.json
+  py -3.13 .\waveform-control.py --name high_5_rest_2 --time 120 --intensity 80 --channel A --background
+
+AI 认为新波形值得复用时，可以把验证后的序列保存进 waveform-library.json。
+波形使用相对百分比，之后会按照 AI 当前决定的总体强度自动缩放。
+
+DungeonLab .pulse/ZIP 导入后，程序会分析强度、频率、节奏变化、停顿和文件名。
+成功的原文件在 .\waveforms\default，失败的在 .\waveforms\rejected，失败原因写入
+.\waveforms\catalog.json。只有 default 中的波形会进入 AI 候选。AI 会按当前剧情选择
+合适的导入波形，并在它决定的总时长内循环；导入帧的相对曲线保持不变，总输出仍按
+AI 本轮百分比及玩家设置的通道上限缩放。
+
+AI 反馈时间占比：
+
+  project-config.json -> feedback.min_pulse_duty_percent
+
+默认值为 70，启动时可以设置为 10 到 100。它表示每个重复间隔内，AI 反馈至少
+持续多少百分比。例如 interval_ms=1000、占比=70 时，pulse_duration_ms 至少为
+700；interval_ms=2000 时至少为 1400。AI 返回得更短会被本地自动提高，不会导致
+该轮报错。100 表示反馈时间基本覆盖整个间隔；波形中明确写出的 rest 休息段仍保留。
+
+
+高级后台运行
+------------
+
+在高级模式最后加 --background，可以把持续命令放到后台运行：
+
+  py .\vibration-control.py --advanced --hit 100 --time 200 --interval 5 --background
+
+后台运行适合让模型一边执行触手拍打玩家的设备反馈，一边继续读取摄像头画面观察玩家反应。
+
+例如模型可以先启动后台反馈：
+
+  py .\vibration-control.py --advanced --randomhit 20-80 --time 120 --interval 2 --background
+
+然后继续去查看最新画面：
+
+  读取 latest.jpg，观察玩家姿势、表情、动作变化，再决定下一句剧情和下一轮设备反馈。
+
+如果想让反馈更像多只小怪物轮流进攻，可以用较短间隔和随机强度：
+
+  py .\vibration-control.py --advanced --randomhit 15-70 --time 180 --interval 1 --background
+
+如果想让 Boss 攻击更像蓄力后的稳定重击，可以用较长间隔和固定 HIT：
+
+  py .\vibration-control.py --advanced --hit 100 --time 240 --interval 6 --background
+
+如果想让场景里一直存在轻微魔法压制，同时把主要剧情交给模型继续推进：
+
+  py .\vibration-control.py --advanced --randomset 5-20 --time 300 --interval 2 --background
+
+后台命令会按照 --time 自动结束。普通的 --stop 会终止当前后台高级循环，并立刻让设备停止输出：
+
+  py .\vibration-control.py --stop
+
+所以后台命令仍建议把 --time 写成明确的剧情片段长度，例如 30、60、120、180 秒。
+
+
+实时场景调用范式
+----------------
+
+这个项目不是回合制。模型不应该先阻塞发送一段强度，等结束后才读取 latest.jpg。
+
+正确做法是：
+
+  1. 先用 --background 启动一段有明确时间上限的反馈。
+  2. 不等待反馈结束，等待反馈开始后的新画面并读取 latest.jpg。
+  3. 根据画面判断玩家的实时反应。
+  4. 再决定下一段剧情、目标护甲、触手动作和强度。
+
+模型应该重点观察：
+
+  - 玩家是否捂住某个位置
+  - 玩家是否夹紧、松开、翻身或后退
+  - 玩家是否用手拉住护甲或挡住战服边缘
+  - 哪个护甲位置可能已经松动
+  - 哪个位置可能正在承受剧情中的魔法伤害
+  - 玩家是否可能因为上一段反馈暴露了新的弱点
+
+  前四项可以按画面中的可见变化记录；“魔法伤害”“弱点”和反馈造成的因果只能作为待验证的剧情假设。
+
+模型可以在剧情里这样安排：
+
+  先启动后台反馈：
+
+    py .\vibration-control.py --advanced --randomhit 20-60 --time 60 --interval 1.5 --background
+
+  然后立刻读取 latest.jpg：
+
+    观察玩家是否捂住战服边缘、是否夹紧双腿、是否试图挡住某个护甲薄弱点。
+
+  再根据画面继续：
+
+    如果玩家捂住右侧战服边缘，说明那里可能是弱点。
+    如果玩家夹紧双腿，说明触手可能被固定，但魔法传导也可能更稳定。
+    如果玩家松开并后仰，说明上一段随机节奏可能已经打断玩家防御。
+
+
+实时示例命令
+------------
+
+低强度试探，适合刚进入场景时观察玩家会保护哪里：
+
+  py .\vibration-control.py --advanced --randomhit 5-25 --time 45 --interval 2 --background
+
+稳定压制，适合让玩家误以为自己已经适应：
+
+  py .\vibration-control.py --advanced --hit 25 --time 60 --interval 2 --background
+
+停顿感更强的随机拍打，适合测试玩家是否会突然捂住某个位置：
+
+  py .\vibration-control.py --advanced --randomhit 20-70 --time 90 --interval 3 --background
+
+急促小怪围攻，适合多只小怪物轮流干扰：
+
+  py .\vibration-control.py --advanced --randomhit 10-55 --time 120 --interval 0.8 --background
+
+战服夹层压制，适合玩家护甲已经被标记或松动后使用：
+
+  py .\vibration-control.py --advanced --randomhit 35-85 --time 90 --interval 1.2 --background
+
+Boss 蓄力重击，适合剧情里怪物读心后抓住破绽：
+
+  py .\vibration-control.py --advanced --hit 100 --time 120 --interval 5 --background
+
+环境魔法场，适合沼泽、史莱姆湖、藤蔓巢穴、电流地板等场景：
+
+  py .\vibration-control.py --advanced --randomset 5-35 --time 180 --interval 2 --background
+
+护甲破防尝试，适合怪物正在寻找战斗短裤边缘或手套袖口弱点：
+
+  py .\vibration-control.py --advanced --randomhit 15-45 --time 75 --interval 1.5 --background
+
+五分钟绝招，适合已经进入战败压制阶段：
+
+  py .\vibration-control.py --advanced --randomhit 20-85 --time 300 --interval 1.2 --background
+
+残留余波，适合战败后让场景慢慢冷却：
+
+  py .\vibration-control.py --advanced --randomset 3-15 --time 60 --interval 2 --background
+
+
+给模型的实时提示词示例
+----------------------
+
+可以把下面这段直接给模型：
+
+  这是实时场景，不是回合制。
+  如果你需要持续反馈，优先调用 vibration-control.py --advanced ... --background。
+  调用后台反馈后不要等待它结束，等待并读取反馈开始后的新 latest.jpg。
+  你要根据画面判断玩家捂住哪里、挡住哪里、哪件护甲正在保护弱点、
+  哪个位置已经被上一段反馈影响。
+  然后继续推进剧情并决定下一段强度。
+
+更具体的提示词：
+
+  如果你看到玩家用手按住某个护甲边缘，把那里记录为可能的护甲薄弱点，留待后续画面验证。
+  如果你看到玩家夹紧双腿，记录这个可见动作；触手是否被固定得更利于魔法传导只能作为剧情假设。
+  如果画面中可见玩家松开、后仰或动作变慢，可以把“上一段反馈可能打断防御节奏”记录为假设；单张图片不能确认喘气、疼痛或因果。
+  如果你需要继续压制，不要阻塞等待，直接启动下一段 --background，然后再次读取 latest.jpg。
+
+
+远程桥
+------
+
+如果 PowerShell 桥不在本机，例如桥运行在另一台 Windows 机器上：
+
+  py .\vibration-control.py --host <桥所在机器IP> --port 25363 --ping
+
+
+raw 命令
+--------
+
+高级调试时可以直接发原始命令：
+
+  py .\vibration-control.py --raw STATUS
+  py .\vibration-control.py --raw "SET 10"
+
+raw 命令只允许可打印 ASCII，长度不能超过 64 字符。
+
+
+输出说明
+--------
+
+脚本会打印：
+
+  <= 发送的命令
+  => 桥或 ESP32-S3 返回的协议结果
+
+脚本会过滤 ESP32-S3 的 NimBLE 调试日志，只保留 PONG / STATUS / OK / ERR / SERVICES 这类协议结果行。
+
+--------
+
+剧本补充：由于你的触手带有魔法酸液或魔法电感，你每次触摸玩家那么玩家都会被你的魔法持续施加七秒的震动，如果七秒内没有继续再次触摸玩家那么会逐渐降低震动强度到0。但如果在触摸后的七秒内继续再次用hit命令触摸那么会叠加施放的魔法强度。也就是如果你连续或快速的发送hit那么你施放给玩家的魔法伤害会被叠加。
